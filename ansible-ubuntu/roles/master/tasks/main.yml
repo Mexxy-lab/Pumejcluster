@@ -1,0 +1,80 @@
+---
+- name: Check if Kubernetes is already initialized
+  stat:
+    path: /etc/kubernetes/admin.conf
+  register: kubeadm_config
+
+- name: Restart containerd to ensure it's running
+  systemd:
+    name: containerd
+    state: restarted
+    enabled: true
+
+- name: Wait for containerd socket to be ready
+  wait_for:
+    path: /run/containerd/containerd.sock
+    state: present
+    timeout: 60
+
+- name: Initialize Kubernetes control plane
+  become: true
+  shell: |
+    set -o pipefail
+    kubeadm init \
+      --apiserver-advertise-address=192.168.1.120 \
+      --pod-network-cidr=192.168.0.0/16 \
+      --kubernetes-version=1.28.15 \
+      --cri-socket=unix:///run/containerd/containerd.sock | tee /root/kubeadm-init.out
+  args:
+    executable: /bin/bash
+  when: not kubeadm_config.stat.exists
+
+- name: Enable and start kubelet (just in case)
+  systemd:
+    name: kubelet
+    enabled: yes
+    state: started
+
+- name: Create .kube directory for vagrant user
+  file:
+    path: /home/vagrant/.kube
+    state: directory
+    owner: vagrant
+    group: vagrant
+    mode: '0755'
+
+- name: Copy kubeconfig to vagrant user
+  copy:
+    src: /etc/kubernetes/admin.conf
+    dest: /home/vagrant/.kube/config
+    remote_src: yes
+    owner: vagrant
+    group: vagrant
+    mode: '0600'
+
+- name: Check if Calico is already installed
+  command: kubectl get daemonset calico-node -n kube-system
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
+  register: calico_status
+  failed_when: false
+  changed_when: false
+
+- name: Apply Calico CNI
+  shell: |
+    export KUBECONFIG=/etc/kubernetes/admin.conf
+    kubectl apply -f https://raw.githubusercontent.com/projectcalico/calico/v3.25.0/manifests/calico.yaml
+  when: calico_status.rc != 0
+
+- name: Save kubeadm join command
+  shell: |
+    kubeadm token create --print-join-command > /home/vagrant/kubeadm-join.sh
+  args:
+    creates: /home/vagrant/kubeadm-join.sh
+
+- name: Make join script executable
+  file:
+    path: /home/vagrant/kubeadm-join.sh
+    mode: '0755'
+    owner: vagrant
+    group: vagrant

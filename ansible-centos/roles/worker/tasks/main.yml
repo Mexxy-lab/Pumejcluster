@@ -1,0 +1,11 @@
+- name: Wait for kubeadm join script to be created on master
+  ansible.builtin.wait_for:
+    path: /home/vagrant/kubeadm-join.sh
+    state: present
+    timeout: 120
+
+- name: Join Kubernetes cluster using kubeadm
+  become: true
+  ansible.builtin.command: bash /home/vagrant/kubeadm-join.sh
+  args:
+    creates: /etc/kubernetes/kubelet.conf

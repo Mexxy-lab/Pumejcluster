@@ -1,0 +1,67 @@
+- name: Check if Kubernetes is already initialized
+  stat:
+    path: /etc/kubernetes/admin.conf
+  register: kubeadm_config
+
+- name: Initialize kubeadm on master
+  become: true
+  shell: |
+    set -o pipefail
+    kubeadm init --pod-network-cidr=192.168.0.0/16 --kubernetes-version={{ kubernetes_version }} | tee /root/kubeadm-init.out
+  args:
+    executable: /bin/bash
+  when: not kubeadm_config.stat.exists
+
+- name: Create .kube directory for vagrant user
+  become: true
+  file:
+    path: /home/vagrant/.kube
+    state: directory
+    owner: vagrant
+    group: vagrant
+    mode: '0755'
+
+- name: Copy kube config to vagrant user
+  become: true
+  copy:
+    src: /etc/kubernetes/admin.conf
+    dest: /home/vagrant/.kube/config
+    owner: vagrant
+    group: vagrant
+    mode: '0600'
+    remote_src: yes
+
+- name: Check if Calico is already installed
+  command: kubectl get daemonset calico-node -n kube-system
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
+  register: calico_check
+  failed_when: false
+  changed_when: false
+
+- name: Install Calico CNI
+  become: true
+  shell: |
+    export KUBECONFIG=/etc/kubernetes/admin.conf
+    kubectl apply -f https://docs.projectcalico.org/manifests/calico.yaml
+  when: calico_check.rc != 0
+
+- name: Check if kubeadm join script exists
+  stat:
+    path: /home/vagrant/kubeadm-join.sh
+  register: join_script
+
+- name: Generate kubeadm join command script
+  become: true
+  shell: kubeadm token create --print-join-command > /home/vagrant/kubeadm-join.sh
+  args:
+    creates: /home/vagrant/kubeadm-join.sh
+  when: not join_script.stat.exists
+
+- name: Set permissions on join script
+  become: true
+  file:
+    path: /home/vagrant/kubeadm-join.sh
+    owner: vagrant
+    group: vagrant
+    mode: '0755'

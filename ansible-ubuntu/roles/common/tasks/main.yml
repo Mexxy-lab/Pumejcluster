@@ -1,0 +1,154 @@
+---
+- name: Disable swap (required by Kubernetes)
+  shell: |
+    swapoff -a
+    sed -i '/ swap / s/^/#/' /etc/fstab
+  become: true
+
+- name: Load kernel modules config
+  copy:
+    dest: /etc/modules-load.d/containerd.conf
+    content: |
+      overlay
+      br_netfilter
+    mode: '0644'
+
+- name: Load overlay module
+  modprobe:
+    name: overlay
+    state: present
+
+- name: Load br_netfilter module
+  modprobe:
+    name: br_netfilter
+    state: present
+
+- name: Apply sysctl parameters for Kubernetes networking
+  copy:
+    dest: /etc/sysctl.d/kubernetes.conf
+    content: |
+      net.bridge.bridge-nf-call-ip6tables = 1
+      net.bridge.bridge-nf-call-iptables = 1
+      net.ipv4.ip_forward = 1
+    mode: '0644'
+
+- name: Reload sysctl
+  command: sysctl --system
+  become: true
+
+# ---------------------------------------------------------------------
+# Install Containerd (version 1.6.27) and configure SystemdCgroup
+# ---------------------------------------------------------------------
+
+- name: Remove existing containerd and config
+  apt:
+    name:
+      - containerd
+      - containerd.io
+    state: absent
+  ignore_errors: true
+
+- name: Remove old containerd config directory
+  file:
+    path: /etc/containerd
+    state: absent
+  ignore_errors: true
+
+- name: Download containerd 1.6.27 package
+  get_url:
+    url: https://download.docker.com/linux/ubuntu/dists/jammy/pool/stable/amd64/containerd.io_1.6.27-1_amd64.deb
+    dest: /tmp/containerd.io_1.6.27-1_amd64.deb
+    mode: '0644'
+
+- name: Install containerd 1.6.27
+  apt:
+    deb: /tmp/containerd.io_1.6.27-1_amd64.deb
+
+- name: Generate default containerd config (force overwrite)
+  shell: containerd config default > /etc/containerd/config.toml
+  become: true
+
+- name: Set sandbox_image to pause:3.9
+  replace:
+    path: /etc/containerd/config.toml
+    regexp: '^(\s*)sandbox_image = ".*"'
+    replace: '\1sandbox_image = "registry.k8s.io/pause:3.9"'
+
+- name: Ensure CRI plugin block exists in containerd config
+  lineinfile:
+    path: /etc/containerd/config.toml
+    regexp: '^#?version ='
+    line: 'version = 2'
+    state: present
+
+- name: Set SystemdCgroup = true in containerd config
+  replace:
+    path: /etc/containerd/config.toml
+    regexp: '^(\s*)SystemdCgroup = false'
+    replace: '\1SystemdCgroup = true'
+
+- name: Reexec systemd to avoid containerd reload issues
+  command: systemctl daemon-reexec
+
+- name: Restart and enable containerd
+  systemd:
+    name: containerd
+    state: restarted
+    enabled: true
+
+- name: Configure crictl to use containerd
+  copy:
+    dest: /etc/crictl.yaml
+    content: |
+      runtime-endpoint: unix:///run/containerd/containerd.sock
+      image-endpoint: unix:///run/containerd/containerd.sock
+      timeout: 10
+      debug: false
+    mode: '0644'
+
+# ---------------------------------------------------------------------
+# Kubernetes APT Repository & Package Setup
+# ---------------------------------------------------------------------
+
+- name: Ensure apt keyrings directory exists
+  file:
+    path: /etc/apt/keyrings
+    state: directory
+    mode: '0755'
+
+- name: Add Kubernetes GPG key
+  shell: |
+    curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.28/deb/Release.key | gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+  args:
+    creates: /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+
+- name: Add Kubernetes apt repo
+  apt_repository:
+    repo: "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.28/deb/ /"
+    state: present
+    filename: kubernetes
+    update_cache: yes
+
+- name: Install Kubernetes components
+  apt:
+    name:
+      - kubelet
+      - kubeadm
+      - kubectl
+    state: present
+    update_cache: yes
+
+- name: Hold Kubernetes versions
+  dpkg_selections:
+    name: "{{ item }}"
+    selection: hold
+  loop:
+    - kubelet
+    - kubeadm
+    - kubectl
+
+- name: Enable and start kubelet
+  systemd:
+    name: kubelet
+    enabled: yes
+    state: started
