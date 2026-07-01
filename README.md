@@ -18,6 +18,7 @@
         ```bash
         vagrant plugin install vagrant-vmware-desktop       | Make sure vm ware plug in is installed
         vagrant up     | vagran.exe up                      | Make sure to kepp VB open during this run
+        vagrant.exe halt                                    | Used to gracefully shutdown the VMs. 
         vagrant up --provider=vmware_desktop                | To use vm ware workstation 
         ./start-cluster.sh                                  | Would provision the cluster end to end joining all nodes 
         ```
