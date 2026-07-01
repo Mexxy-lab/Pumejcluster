@@ -77,3 +77,13 @@
         sudo rm -rf ~/.kube /etc/kubernetes /var/lib/etcd /var/lib/kubelet /etc/cni/net.d
         sudo systemctl restart containerd
         ```
+    - To run the cluster from your terminal, need to configure the kube context using below command: 
+
+        ```bash
+        kubectl config get-contexts
+        kubectl config current-context
+        kubectl config use-context <context-name>
+        az aks get-credentials --resource-group <resource-group> --name <cluster-name> --overwrite-existing
+        aws eks update-kubeconfig --region <region> --name <cluster-name>
+        gcloud container clusters get-credentials <cluster-name> --region <region> --project <project-id>
+        ```
