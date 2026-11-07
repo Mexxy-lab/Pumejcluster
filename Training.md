@@ -84,7 +84,7 @@ The control-plane node must be upgraded before the worker node.
 
 ---
 
-# 3. Stage 1: Upgrade Kubernetes v1.28.15 to v1.29.15
+## 3. Stage 1: Upgrade Kubernetes v1.28.15 to v1.29.15
 
 ## 3.1 Upgrade the master node
 
@@ -264,7 +264,7 @@ apt-cache madison kubectl
 apt-cache madison kubelet
 ```
 
-### Step 3: Upgrade kubeadm
+Step 3: Upgrade kubeadm
 
 ```bash
 sudo apt-mark unhold kubeadm
@@ -333,13 +333,13 @@ Both nodes should now report v1.29.15 and be Ready.
 
 ---
 
-# 4. Stage 2: Upgrade Kubernetes v1.29.15 to v1.30.14
+## 4. Stage 2: Upgrade Kubernetes v1.29.15 to v1.30.14
 
 The same upgrade procedure was followed for the next minor release.
 
 ## 4.1 Upgrade the master node
 
-### Step 1: Update the Kubernetes APT repository
+Step 1: Update the Kubernetes APT repository
 
 On `master-node`:
 
@@ -407,7 +407,7 @@ The upgrade completed successfully:
 
 Kubeadm also updated the applicable Kubernetes control-plane components and addons.
 
-### Step 5: Upgrade kubectl and kubelet
+Step 5: Upgrade kubectl and kubelet
 
 ```bash
 sudo apt-mark unhold kubectl kubelet
@@ -464,7 +464,7 @@ apt-cache madison kubectl
 apt-cache madison kubelet
 ```
 
-### Step 3: Upgrade kubeadm
+Step 3: Upgrade kubeadm
 
 ```bash
 sudo apt-mark unhold kubeadm
@@ -492,7 +492,7 @@ Expected successful message:
 The configuration for this node was successfully updated!
 ```
 
-### Step 5: Upgrade kubectl and kubelet
+Step 5: Upgrade kubectl and kubelet
 
 ```bash
 sudo apt-mark unhold kubectl kubelet
@@ -541,7 +541,7 @@ worker-node1   Ready    <none>          v1.30.14
 
 ---
 
-# 5. Post-Upgrade Verification
+## 5. Post-Upgrade Verification
 
 After upgrading both nodes, several checks were performed to confirm the cluster was healthy.
 
@@ -640,7 +640,7 @@ Confirm that kubelet is active and running.
 
 ---
 
-# 6. Final Upgrade Results
+## 6. Final Upgrade Results
 
 The final verification after upgrading to v1.30.14 returned the following results.
 
@@ -699,7 +699,7 @@ kubectl get pods -A | grep -v Running | grep -v Completed
 
 ---
 
-# 7. Important Notes and Lessons Learned
+## 7. Important Notes and Lessons Learned
 
 ## 7.1 Kubernetes version compatibility
 
@@ -799,7 +799,7 @@ This was a non-fatal message. The etcd pod remained Running and healthy.
 
 ---
 
-# 8. Troubleshooting Reference
+## 8. Troubleshooting Reference
 
 ### Node remains NotReady
 
@@ -883,7 +883,7 @@ kubectl uncordon worker-node1
 
 ---
 
-# 9. Preparation for the Next Upgrade: Kubernetes v1.31
+## 9. Preparation for the Next Upgrade: Kubernetes v1.31
 
 The cluster is currently running v1.30.14.
 
@@ -913,7 +913,7 @@ Useful official documentation:
 
 ---
 
-# 10. Final Summary
+## 10. Final Summary
 
 This lab successfully upgraded a two-node kubeadm-managed Kubernetes cluster through two consecutive minor releases.
 
@@ -933,6 +933,6 @@ This lab successfully upgraded a two-node kubeadm-managed Kubernetes cluster thr
 
 The upgrade was completed without a reported application or infrastructure workload remaining unhealthy.
 
-**Current cluster version: Kubernetes v1.30.14**
+## **Current cluster version: Kubernetes v1.30.14**
 
-**Next planned milestone: Kubernetes v1.31.x**
+## **Next planned milestone: Kubernetes v1.31.x**
